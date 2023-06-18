@@ -60,6 +60,7 @@ impl HardwareController for SerialController {
                 10 => { // Buffer matches a new line?
                     if first_run == true {
                         first_run = false;
+                        string.clear();
                         continue;
                     }
                     let line = String::from_utf8(string.clone()).expect("Found invalid UTF-8");
@@ -69,12 +70,9 @@ impl HardwareController for SerialController {
                         if slider.parse::<u16>().is_ok() {
                             values.push(SliderValue { id: index, raw_val: slider.parse::<u16>().expect("Failed to parse"), perc: 0 });
                             index += 1;
-                            if index >= 4 {
-                                break;
-                            }
-                            println!("{}", line);
                         }
                     }
+                    println!("{}", line);
                     break;
                 }
                 c => {
