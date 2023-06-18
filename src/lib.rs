@@ -3,6 +3,7 @@ extern crate serial;
 use std::process::Command;
 use serial::{prelude::*, unix::TTYPort};
 
+use std::io;
 use std::io::prelude::*;
 
 pub trait AudioInterface {
@@ -27,30 +28,38 @@ pub struct SliderValue {
 
 impl SerialController {
     pub fn new(device: &str) -> SerialController {
-        let mut port = serial::open(device).unwrap();
-        
-        port.reconfigure(&|settings| {
+        let port = serial::open(device).unwrap();
+        SerialController { port }
+    }
+    fn reconfigure(&mut self) -> io::Result<()> {
+        self.port.reconfigure(&|settings: &mut dyn SerialPortSettings| {
             settings.set_baud_rate(serial::Baud9600)?;
             settings.set_char_size(serial::Bits8);
             settings.set_parity(serial::ParityNone);
             settings.set_stop_bits(serial::Stop1);
             settings.set_flow_control(serial::FlowNone);
             Ok(())
-        });
-
-        SerialController { port }
+        })?;
+        Ok(())
     }
 }
 
 impl HardwareController for SerialController {
     fn read_slidervalues(&mut self) -> Vec<SliderValue> {
-        let mut string: Vec<u8> = Vec::with_capacity(30);
+        let mut string: Vec<u8> = Vec::with_capacity(20);
         let mut first_run = true;
         let mut values: Vec<SliderValue> = Vec::new();
 
+        self.reconfigure().expect("Failed to reconfigure Serial port");
+
         loop {
             let mut buf = [0 as u8];
-            self.port.read(&mut buf);
+            match self.port.read(&mut buf) {
+                Ok(_) => {}
+                Err(err) => {
+                    eprintln!("Failed to read from Serial: {}", err);
+                }
+            }
 
             if buf[0] >= 128 {
                 continue;
@@ -68,42 +77,17 @@ impl HardwareController for SerialController {
 
                     for slider in line.split('|') {
                         if slider.parse::<u16>().is_ok() {
-                            values.push(SliderValue { id: index, raw_val: slider.parse::<u16>().expect("Failed to parse"), perc: 0 });
+                            let sld_val = slider.parse::<u16>().expect("Failed to parse");
+                            values.push(SliderValue { id: index, raw_val: sld_val, perc: (((sld_val as f32 / 1000.0 * 100.0) as i8) - 100).abs() as u8 });
                             index += 1;
                         }
                     }
-                    println!("{}", line);
                     break;
                 }
                 c => {
                     string.push(c);
                 }
             }
-
-            /*match buf[0] {
-                10 => { // Buffer matches a new line?
-                    
-                    let line = String::from_utf8(string.clone()).expect("Found invalid UTF-8");
-                    let mut index: u8 = 0;
-
-                    /*for slider in line.split('|') {
-                        if slider.parse::<u16>().is_ok() {
-                            values.push(SliderValue { id: index, raw_val: slider.parse::<u16>().expect("Failed to parse"), perc: 0 });
-                            index += 1;
-                        }
-                    }*/
-                    println!("Line: {}", line);
-
-                    if first_run == true {
-                        first_run = false;
-                        //continue;
-                    }
-                    //break;
-                }
-                c => {
-                    string.push(c);
-                }
-            }*/
         }
         values
     }
