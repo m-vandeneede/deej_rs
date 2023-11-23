@@ -27,9 +27,10 @@ fn main() {
 
             if !proc_name.is_empty() && prev_values[slider.id as usize].perc != slider.perc {
                 // Sliders were moved - Time to wake up
+                if should_sleep { println!("Wakey wakey!") }
                 should_sleep = false;
                 nochange_ticks = 0;
-
+                
                 prev_values[slider.id as usize].perc = slider.perc;
                 if proc_name == "master" {
                     interface.adjust_volume(slider.perc);
@@ -47,7 +48,7 @@ fn main() {
             println!("Sleeping...")
         }
         if should_sleep{
-            thread::sleep(Duration::from_millis(3000));
+            thread::sleep(Duration::from_millis(500));
         } else {
             // We still sleep, but just a little less ;)
             thread::sleep(Duration::from_millis(50));
