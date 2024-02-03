@@ -8,7 +8,7 @@ use std::io::prelude::*;
 
 pub trait AudioInterface {
     fn adjust_volume(&self, volume: u8);
-    fn adjust_app_volume(&self, app_name: &str, volume: u8);
+    fn adjust_app_volume(&self, app_name: &str, pretty_name: &str, volume: u8);
 }
 
 pub trait HardwareController {
@@ -122,15 +122,18 @@ impl AudioInterface for PaControl {
     fn adjust_volume(&self, volume: u8) {
         println!("Now adjusting general volume to {0}%", volume);
         cmd(&format!("pactl set-sink-volume @DEFAULT_SINK@ {0}%", volume));
+        cmd("ags run-js 'indicator.popup(1);'");
     }
 
-    fn adjust_app_volume(&self, app_name: &str, volume: u8) {
+    fn adjust_app_volume(&self, app_name: &str, pretty_name: &str, volume: u8) {
         println!("Now adjusting app volume of {0} to {1}%", app_name, volume);
         let app_sinks = &self.search_sink(app_name);
 
         for sink in app_sinks.iter() {
             cmd(&format!("pactl set-sink-input-volume {0} {1}%", sink, volume));
         }
+
+        cmd(&format!("ags run-js 'indicator.popup(1, \"{0}\", \"{1}\");'", pretty_name, volume));
     }
 }
 
